@@ -10,8 +10,7 @@ from .serializers import (
     CategorySerializer,
     ProductSerializer,
     OrderSerializer,
-    CartItemSerializer,
-    CartSerializer,
+    UserCartSerializer,
     )
 from django.shortcuts import get_object_or_404
 from django.db import transaction
@@ -74,14 +73,13 @@ class ProductViewSet(viewsets.ModelViewSet):
 
 class UserCartView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = CartItemSerializer
+    serializer_class = UserCartSerializer
 
     
     def get(self, request):
-        """List all items in the user's cart."""
-        cart = self.request.user.cart
-        items = cart.items.all()
-        serializer = self.get_serializer(items, many=True)
+        """List items in the user's cart."""
+        cart = request.user.cart
+        serializer = UserCartSerializer(cart)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -89,7 +87,7 @@ class UserCartView(generics.GenericAPIView):
         quantity = request.data.get("quantity", 1)
 
         product = get_object_or_404(Product, id=product_id)
-        cart = self.request.user.cart
+        cart, created = Cart.objects.get_or_create(user=self.request.user)
         
         cart_item, created = CartItem.objects.get_or_create(
             cart=cart, product=product, defaults={"quantity": quantity}

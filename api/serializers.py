@@ -4,31 +4,35 @@ from .models import User, Product, Order, Category, Cart, CartItem
 from django.contrib.auth import authenticate
 
 class CartItemSerializer(serializers.ModelSerializer):
+    total_price = serializers.SerializerMethodField()
+
     class Meta:
         model = CartItem
         fields = ["id", "product", "quantity", "total_price"]
 
-class CartSerializer(serializers.ModelSerializer):
-    cart_items = CartItemSerializer(many=True, read_only=True)
-    total_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+    def get_total_price(self, obj):
+        return obj.product.price * obj.quantity
+
+class UserCartSerializer(serializers.ModelSerializer):
+    cart_items = CartItemSerializer(source="items", many=True, read_only=True)
+    user = serializers.StringRelatedField(read_only=True)
+    total_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Cart
-        fields = ["id", "user", "items", "total_price"]
+        fields = ["id", "user", "cart_items", "total_price"]
+    
+    def get_total_price(self, obj):
+        return sum(
+            item.product.price * item.quantity
+            for item in obj.items.all()
+        )
 
 class UserSerializer(serializers.ModelSerializer):
-    cart_items = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("id", "username", "first_name", "last_name", "email", "is_active", "phone", "cart_items")
-    
-    def get_cart_items(self, obj):
-        cart = getattr(obj, "cart", None)
-        if not cart:
-            return []
-        return CartItemSerializer(cart.items.all(), many=True).data
-
+        fields = ("id", "username", "first_name", "last_name", "email", "is_active", "phone")
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     class Meta:
@@ -80,7 +84,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ("id", "username", "first_name", "last_name", "email", "phone", "is_active")
+        fields = ("id", "first_name", "last_name", "email", "phone", "is_active")
         extra_kwargs = {
             "email":{"required":True}
         }
