@@ -32,6 +32,27 @@ class Product(BaseModel):
         return self.name
 
 
+class Cart(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="cart")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Cart of {self.user.username}"
+
+    @property
+    def total_price(self):
+        return sum(item.total_price for item in self.items.all())
+
+class CartItem(BaseModel):
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField(default=1)
+
+    @property
+    def total_price(self):
+        return self.product.price * self.quantity
+
 class Order(BaseModel):
 
     STATUS = [

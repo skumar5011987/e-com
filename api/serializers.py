@@ -1,12 +1,33 @@
 
 from rest_framework import serializers
-from .models import User, Product, Order, Category
+from .models import User, Product, Order, Category, Cart, CartItem
 from django.contrib.auth import authenticate
 
+class CartItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CartItem
+        fields = ["id", "product", "quantity", "total_price"]
+
+class CartSerializer(serializers.ModelSerializer):
+    cart_items = CartItemSerializer(many=True, read_only=True)
+    total_price = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = Cart
+        fields = ["id", "user", "items", "total_price"]
+
 class UserSerializer(serializers.ModelSerializer):
+    cart_items = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ("id", "username", "first_name", "last_name", "email", "is_active", "phone")
+        fields = ("id", "username", "first_name", "last_name", "email", "is_active", "phone", "cart_items")
+    
+    def get_cart_items(self, obj):
+        cart = getattr(obj, "cart", None)
+        if not cart:
+            return []
+        return CartItemSerializer(cart.items.all(), many=True).data
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
